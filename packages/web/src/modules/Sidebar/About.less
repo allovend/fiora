@@ -1,0 +1,24 @@
+@import "../../styles/variable.less";
+
+.about {
+    /* 大弹窗标准尺寸：600px */
+    width: 600px !important;
+    /* 确保居中显示，不设置定位属性，由基础样式层控制 */
+    position: relative !important;
+    top: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+
+    @media @mobile {
+        width: 94vw !important;
+    }
+
+    :global {
+        p, li {
+            user-select: text;
+        }
+        a {
+            word-break: break-all;
+        }
+    }
+}
