@@ -151,9 +151,7 @@ function HeaderBar(props: Props) {
                     data-fiora="chat-header-buttons"
                 >
                     {type === 'group' && (
-                        <CopyToClipboard
-                            text={`${window.location.origin}/invite/group/${id}`}
-                        >
+                        <CopyToClipboard text={`${window.location.origin}/invite/group/${id}`}>
                             <IconButton
                                 width={40}
                                 height={40}
@@ -161,7 +159,8 @@ function HeaderBar(props: Props) {
                                 iconSize={24}
                                 onClick={handleShareGroup}
                             />
-                        ) }
+                        </CopyToClipboard>
+                    )}
                     <IconButton
                         width={40}
                         height={40}
