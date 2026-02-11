@@ -108,37 +108,3 @@ export async function getAllBannedUsernames() {
     const allBannedUsernameKeys = await keys('BannedUsername-*');
     return allBannedUsernameKeys.map((key) => key.replace('BannedUsername-', ''));
 }
-
-
-// =====================
-// 登录/加入私密群的封禁 key
-// =====================
-export function getLoginFailKey(username: string) {
-    return `LoginFail-${username}`;
-}
-export function getLoginBanKey(username: string) {
-    return `LoginBan-${username}`;
-}
-export function getLoginBanStageKey(username: string) {
-    return `LoginBanStage-${username}`;
-}
-
-export function getGroupJoinFailKey(userId: string, groupId: string) {
-    return `GroupJoinFail-${userId}-${groupId}`;
-}
-export function getGroupJoinBanKey(userId: string, groupId: string) {
-    return `GroupJoinBan-${userId}-${groupId}`;
-}
-export function getGroupJoinBanStageKey(userId: string, groupId: string) {
-    return `GroupJoinBanStage-${userId}-${groupId}`;
-}
-
-// =====================
-// 邮箱验证码登录 key
-// =====================
-export function getEmailLoginCodeKey(email: string) {
-    return `EmailLoginCode-${email}`;
-}
-export function getEmailLoginSendCooldownKey(email: string) {
-    return `EmailLoginSendCooldown-${email}`;
-}

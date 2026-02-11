@@ -8,12 +8,7 @@ import Input from '../../components/Input';
 import useAction from '../../hooks/useAction';
 
 import Style from './LoginRegister.less';
-import {
-    login,
-    loginByEmailCode,
-    requestEmailLoginCode,
-    getLinkmansLastMessagesV2,
-} from '../../service';
+import { login, getLinkmansLastMessagesV2 } from '../../service';
 import { Message } from '../../state/reducer';
 import { ActionTypes } from '../../state/action';
 
@@ -23,25 +18,15 @@ function Login() {
     const dispatch = useDispatch();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [mode, setMode] = useState<'password' | 'emailCode'>('password');
-    const [emailCode, setEmailCode] = useState('');
 
     async function handleLogin() {
-        const user = mode === 'emailCode'
-            ? await loginByEmailCode(
-                  username,
-                  emailCode,
-                  platform.os?.family,
-                  platform.name,
-                  platform.description,
-              )
-            : await login(
-                  username,
-                  password,
-                  platform.os?.family,
-                  platform.name,
-                  platform.description,
-              );
+        const user = await login(
+            username,
+            password,
+            platform.os?.family,
+            platform.name,
+            platform.description,
+        );
         if (user) {
             action.setUser(user);
             action.toggleLoginRegisterDialog(false);
@@ -67,16 +52,9 @@ function Login() {
         }
     }
 
-    async function handleSendEmailCode() {
-        if (!username.trim()) {
-            return;
-        }
-        await requestEmailLoginCode(username.trim());
-    }
-
     return (
         <div className={Style.loginRegister}>
-            <h3 className={Style.title}>用户名或邮箱</h3>
+            <h3 className={Style.title}>用户名</h3>
             <Input
                 className={Style.input}
                 value={username}
@@ -85,59 +63,16 @@ function Login() {
                 id="login-username"
                 name="username"
             />
-            <div style={{ display: 'flex', gap: 8, margin: '6px 0 10px 0' }}>
-                <button
-                    className={Style.button}
-                    style={{ height: 30, padding: '0 10px' }}
-                    onClick={() => setMode('password')}
-                    type="button"
-                >
-                    密码登录
-                </button>
-                <button
-                    className={Style.button}
-                    style={{ height: 30, padding: '0 10px' }}
-                    onClick={() => setMode('emailCode')}
-                    type="button"
-                >
-                    邮箱验证码登录
-                </button>
-            </div>
-
-            {mode === 'password' ? (
-                <>
-                    <h3 className={Style.title}>密码</h3>
-                    <Input
-                        className={Style.input}
-                        type="password"
-                        value={password}
-                        onChange={setPassword}
-                        onEnter={handleLogin}
-                        id="login-password"
-                        name="password"
-                    />
-                </>
-            ) : (
-                <>
-                    <h3 className={Style.title}>邮箱验证码（6位数字）</h3>
-                    <Input
-                        className={Style.input}
-                        value={emailCode}
-                        onChange={(v: string) => setEmailCode(v.replace(/\D/g, '').slice(0, 6))}
-                        onEnter={handleLogin}
-                        id="login-email-code"
-                        name="emailCode"
-                        placeholder="请输入 6 位数字验证码"
-                    />
-                    <button
-                        className={Style.button}
-                        onClick={handleSendEmailCode}
-                        type="button"
-                    >
-                        发送邮箱验证码
-                    </button>
-                </>
-            )}
+            <h3 className={Style.title}>密码</h3>
+            <Input
+                className={Style.input}
+                type="password"
+                value={password}
+                onChange={setPassword}
+                onEnter={handleLogin}
+                id="login-password"
+                name="password"
+            />
             <button
                 className={Style.button}
                 onClick={handleLogin}

@@ -1,6 +1,6 @@
 import { View, Icon } from 'native-base';
 import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, Switch, View as RNView } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Actions } from 'react-native-router-flux';
 import Dialog from 'react-native-dialog';
 import { createGroup } from '../../service';
@@ -9,18 +9,14 @@ import action from '../../state/action';
 function ChatListRightButton() {
     const [showDialog, toggleDialog] = useState(false);
     const [groupName, updateGroupName] = useState('');
-    const [isPrivate, setIsPrivate] = useState(false);
-    const [password, setPassword] = useState('');
 
     function handleCloseDialog() {
         updateGroupName('');
-        setIsPrivate(false);
-        setPassword('');
         toggleDialog(false);
     }
 
     async function handleCreateGroup() {
-        const group = await createGroup(groupName, isPrivate, password);
+        const group = await createGroup(groupName);
         if (group) {
             action.addLinkman({
                 ...group,
@@ -51,22 +47,6 @@ function ChatListRightButton() {
                     autoFocus
                     autoCorrect={false}
                 />
-                <RNView style={styles.privacyRow}>
-                    <Dialog.Description style={styles.privacyText}>
-                        {isPrivate ? '私密(开启)' : '公开(关闭)'}
-                    </Dialog.Description>
-                    <Switch value={isPrivate} onValueChange={setIsPrivate} />
-                </RNView>
-                {isPrivate ? (
-                    <Dialog.Input
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="请输入密码！"
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                ) : null}
                 <Dialog.Button label="取消" onPress={handleCloseDialog} />
                 <Dialog.Button label="创建" onPress={handleCreateGroup} />
             </Dialog.Container>
@@ -87,15 +67,5 @@ const styles = StyleSheet.create({
     icon: {
         color: 'white',
         fontSize: 32,
-    },
-    privacyRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: 8,
-        marginBottom: 4,
-    },
-    privacyText: {
-        marginRight: 12,
     },
 });

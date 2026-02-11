@@ -120,11 +120,6 @@ if (window.location.pathname !== '/') {
     if (pathname.startsWith('/invite/group/')) {
         const groupId = pathname.replace(`/invite/group/`, '');
         window.sessionStorage.setItem('inviteGroupId', groupId);
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token') || '';
-        if (token) {
-            window.sessionStorage.setItem('inviteToken', token);
-        }
     }
 }
 

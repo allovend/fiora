@@ -68,41 +68,6 @@ export async function login(
 }
 
 /**
- * 发送邮箱验证码用于登录（不依赖公网 URL）
- */
-export async function requestEmailLoginCode(email: string) {
-    const [err, res] = await fetch('requestEmailLoginCode', { email });
-    if (err) {
-        return null;
-    }
-    return res;
-}
-
-/**
- * 使用邮箱验证码登录
- */
-export async function loginByEmailCode(
-    email: string,
-    code: string,
-    os = '',
-    browser = '',
-    environment = '',
-) {
-    const [err, user] = await fetch('loginByEmailCode', {
-        email,
-        code,
-        os,
-        browser,
-        environment,
-    });
-    if (err) {
-        return null;
-    }
-    saveUsername(user.username);
-    return user;
-}
-
-/**
  * 使用token登录
  * @param token 登录token
  * @param os 系统
@@ -205,8 +170,8 @@ export async function changeGroupAvatar(groupId: string, avatar: string) {
  * 创建群组
  * @param name 群组名
  */
-export async function createGroup(name: string, isPrivate = false, password = '') {
-    const [, group] = await fetch('createGroup', { name, isPrivate, password });
+export async function createGroup(name: string) {
+    const [, group] = await fetch('createGroup', { name });
     return group;
 }
 
@@ -223,8 +188,8 @@ export async function deleteGroup(groupId: string) {
  * 加入群组
  * @param groupId 群组id
  */
-export async function joinGroup(groupId: string, password = '') {
-    const [, group] = await fetch('joinGroup', { groupId, password });
+export async function joinGroup(groupId: string) {
+    const [, group] = await fetch('joinGroup', { groupId });
     return group;
 }
 
@@ -514,25 +479,6 @@ export async function sealUserOnlineIp(userId: string) {
     return !err;
 }
 
-// ---------- 2FA (TOTP) ----------
-export async function beginTotpSetup() {
-    const [err, res] = await fetch('beginTotpSetup');
-    if (err) return null;
-    return res as any;
-}
-
-export async function enableTotp(code: string) {
-    const [err, res] = await fetch('enableTotp', { code });
-    if (err) return null;
-    return res as any;
-}
-
-export async function disableTotp(password: string, code: string) {
-    const [err, res] = await fetch('disableTotp', { password, code });
-    if (err) return null;
-    return res as any;
-}
-
 /**
  * 获取封禁用户列表
  */
@@ -552,17 +498,6 @@ export async function getSystemConfig() {
  */
 export async function resetUserPassword(username: string) {
     const [, res] = await fetch('resetUserPassword', { username });
-    return res;
-}
-
-/**
- * 管理员强制移除用户 2FA
- */
-export async function adminRemoveTotp(identifier: string) {
-    const [err, res] = await fetch('adminRemoveTotp', { identifier });
-    if (err) {
-        return null;
-    }
     return res;
 }
 
@@ -679,9 +614,4 @@ export async function getBannedUsernameList() {
 export async function getAllOnlineUsers() {
     const [, result] = await fetch('getAllOnlineUsers');
     return result || [];
-}
-
-
-export async function createGroupInviteLink(groupId: string, expireDays: number) {
-    return await fetch('createGroupInviteLink', { groupId, expireDays });
 }

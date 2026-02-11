@@ -1,13 +1,9 @@
 import assert, { AssertionError } from 'assert';
 import { Types } from '@fiora/database/mongoose';
 import stringHash from 'string-hash';
-import jwt from 'jwt-simple';
-import bcrypt from 'bcryptjs';
-import { checkBannedOrThrow, recordFailureAndMaybeBan, groupJoinKeys, clearBan } from '../utils/ban';
 
 import config from '@fiora/config/server';
 import getRandomAvatar from '@fiora/utils/getRandomAvatar';
-import { SALT_ROUNDS } from '@fiora/utils/const';
 import Group, { GroupDocument } from '@fiora/database/mongoose/models/group';
 import Socket from '@fiora/database/mongoose/models/socket';
 import Message from '@fiora/database/mongoose/models/message';
@@ -47,9 +43,7 @@ async function getGroupOnlineMembersHelper(group: GroupDocument) {
  * 创建群组
  * @param ctx Context
  */
-export async function createGroup(
-    ctx: Context<{ name: string; isPrivate?: boolean; password?: string }>,
-) {
+export async function createGroup(ctx: Context<{ name: string }>) {
     // 从 Redis 读取配置，如果不存在则从环境变量读取
     const disableCreateGroupRedis = await Redis.get(DisableCreateGroupKey);
     const disableCreateGroup =
@@ -65,35 +59,19 @@ export async function createGroup(
         `创建群组失败, 你已经创建了${config.maxGroupsCount}个群组`,
     );
 
-    const { name, isPrivate = false, password = '' } = ctx.data;
+    const { name } = ctx.data;
     assert(name, '群组名不能为空');
-
-    if (isPrivate) {
-        assert(password && password.trim().length > 0, '请输入密码！');
-        // 基础强度限制：避免过短密码（安全&性能权衡）
-        assert(password.trim().length >= 4, '密码至少需要4位');
-        assert(password.trim().length <= 64, '密码长度不能超过64位');
-    }
 
     const group = await Group.findOne({ name });
     assert(!group, '该群组已存在');
 
     let newGroup = null;
     try {
-        const passwordHash = isPrivate
-            ? await bcrypt.hash(
-                  password.trim(),
-                  await bcrypt.genSalt(SALT_ROUNDS),
-              )
-            : '';
-
         newGroup = await Group.create({
             name,
             avatar: getRandomAvatar(),
             creator: ctx.socket.user,
             members: [ctx.socket.user],
-            isPrivate,
-            passwordHash,
         } as GroupDocument);
     } catch (err: any) {
         if (err && err.name === 'ValidationError') {
@@ -110,7 +88,6 @@ export async function createGroup(
         createTime: newGroup.createTime,
         creator: newGroup.creator,
         disableMute: newGroup.disableMute || false,
-        isPrivate: newGroup.isPrivate || false,
     };
 }
 
@@ -118,51 +95,13 @@ export async function createGroup(
  * 加入群组
  * @param ctx Context
  */
-export async function joinGroup(
-    ctx: Context<{ groupId: string; password?: string }>,
-) {
-    const { groupId, password = '' } = ctx.data;
+export async function joinGroup(ctx: Context<{ groupId: string }>) {
+    const { groupId } = ctx.data;
     assert(isValid(groupId), '无效的群组ID');
 
-    // passwordHash 默认 select:false，这里需要校验密码时显式取出
-    const group = await Group.findOne({ _id: groupId }).select(
-        '+passwordHash isPrivate name avatar members creator disableMute createTime',
-    );
+    const group = await Group.findOne({ _id: groupId });
     if (!group) {
         throw new AssertionError({ message: '加入群组失败, 群组不存在' });
-    }
-
-    // 私密群加入封禁检查（每个用户-群组维度）
-    try {
-        await checkBannedOrThrow(
-            groupJoinKeys(ctx.socket.user.toString(), groupId).banKey,
-            '加入私密群已被封禁，请稍后再试',
-        );
-    } catch (e: any) {
-        throw new AssertionError({ message: e.message || '加入私密群已被封禁，请稍后再试' });
-    }
-
-    // 私密群组：非管理员必须校验密码
-    if (group.isPrivate && !ctx.socket.isAdmin) {
-        assert(password && password.trim().length > 0, '请输入密码！');
-        const ok = await bcrypt.compare(password.trim(), group.passwordHash || '');
-        if (!ok) {
-            try {
-                await recordFailureAndMaybeBan({
-                    ...groupJoinKeys(ctx.socket.user.toString(), groupId),
-                    type: 'group',
-                });
-            } catch (e) {
-                // 降级：不影响错误提示
-            }
-            throw new AssertionError({ message: '密码错误！' });
-        }
-        // 校验成功：清理失败计数
-        try {
-            await clearBan(groupJoinKeys(ctx.socket.user.toString(), groupId));
-        } catch (e) {
-            // ignore
-        }
     }
     assert(group.members.indexOf(ctx.socket.user) === -1, '你已经在群组中');
 
@@ -190,7 +129,6 @@ export async function joinGroup(
         createTime: group.createTime,
         creator: group.creator,
         disableMute: group.disableMute || false,
-        isPrivate: group.isPrivate || false,
         messages,
     };
 }
@@ -208,20 +146,6 @@ export async function leaveGroup(ctx: Context<{ groupId: string }>) {
         throw new AssertionError({ message: '群组不存在' });
     }
 
-
-    // 邀请链接校验（如果携带 inviteToken）
-    if (ctx.data.inviteToken) {
-        try {
-            const payload: any = jwt.decode(ctx.data.inviteToken, config.inviteSecret);
-            assert(payload && payload.groupId === groupId, '邀请链接无效');
-            if (payload.exp && payload.exp > 0) {
-                assert(Date.now() <= payload.exp, '邀请链接已过期');
-            }
-        } catch (e) {
-            throw new AssertionError({ message: '邀请链接无效或已过期' });
-        }
-    }
-
     // 默认群组没有creator
     if (group.creator) {
         assert(
@@ -235,13 +159,6 @@ export async function leaveGroup(ctx: Context<{ groupId: string }>) {
 
     group.members.splice(index, 1);
     await group.save();
-
-    // 自动解散：群组内没有任何成员时（公开/私密都一样）
-    if (group.members.length === 0 && !group.isDefault) {
-        await Message.deleteMany({ toGroup: groupId });
-        await Group.deleteOne({ _id: groupId });
-        // 密码随群组一起删除（passwordHash）
-    }
 
     ctx.socket.leave(group._id.toString());
 
@@ -419,7 +336,7 @@ export async function deleteGroup(ctx: Context<{ groupId: string }>) {
     return {};
 }
 
-export async function getGroupBasicInfo(ctx: Context<{ groupId: string; inviteToken?: string }>) {
+export async function getGroupBasicInfo(ctx: Context<{ groupId: string }>) {
     const { groupId } = ctx.data;
     assert(isValid(groupId), '无效的群组ID');
 
@@ -428,27 +345,12 @@ export async function getGroupBasicInfo(ctx: Context<{ groupId: string; inviteTo
         throw new AssertionError({ message: '群组不存在' });
     }
 
-
-    // 邀请链接校验（如果携带 inviteToken）
-    if (ctx.data.inviteToken) {
-        try {
-            const payload: any = jwt.decode(ctx.data.inviteToken, config.inviteSecret);
-            assert(payload && payload.groupId === groupId, '邀请链接无效');
-            if (payload.exp && payload.exp > 0) {
-                assert(Date.now() <= payload.exp, '邀请链接已过期');
-            }
-        } catch (e) {
-            throw new AssertionError({ message: '邀请链接无效或已过期' });
-        }
-    }
-
     return {
         _id: group._id,
         name: group.name,
         avatar: group.avatar,
         members: group.members.length,
         disableMute: group.disableMute || false,
-        isPrivate: group.isPrivate || false,
     };
 }
 
@@ -465,20 +367,6 @@ export async function toggleGroupMute(
     const group = await Group.findOne({ _id: groupId });
     if (!group) {
         throw new AssertionError({ message: '群组不存在' });
-    }
-
-
-    // 邀请链接校验（如果携带 inviteToken）
-    if (ctx.data.inviteToken) {
-        try {
-            const payload: any = jwt.decode(ctx.data.inviteToken, config.inviteSecret);
-            assert(payload && payload.groupId === groupId, '邀请链接无效');
-            if (payload.exp && payload.exp > 0) {
-                assert(Date.now() <= payload.exp, '邀请链接已过期');
-            }
-        } catch (e) {
-            throw new AssertionError({ message: '邀请链接无效或已过期' });
-        }
     }
 
     // 只有群主或管理员可以切换禁言状态
@@ -515,20 +403,6 @@ export async function adminGetGroupUsers(ctx: Context<{ groupId: string }>) {
         .populate('creator', 'username avatar createTime');
     if (!group) {
         throw new AssertionError({ message: '群组不存在' });
-    }
-
-
-    // 邀请链接校验（如果携带 inviteToken）
-    if (ctx.data.inviteToken) {
-        try {
-            const payload: any = jwt.decode(ctx.data.inviteToken, config.inviteSecret);
-            assert(payload && payload.groupId === groupId, '邀请链接无效');
-            if (payload.exp && payload.exp > 0) {
-                assert(Date.now() <= payload.exp, '邀请链接已过期');
-            }
-        } catch (e) {
-            throw new AssertionError({ message: '邀请链接无效或已过期' });
-        }
     }
 
     // members 可能不包含 creator，这里合并并去重
@@ -569,113 +443,4 @@ export async function adminGetGroupUsers(ctx: Context<{ groupId: string }>) {
             isCreator: creator && String(u._id) === String(creator._id),
         })),
     };
-}
-
-
-/**
- * 生成群组邀请链接 token
- * - 自定义有效期：expireDays（天）
- * - 永久：expireDays=0
- */
-export async function createGroupInviteLink(
-    ctx: Context<{ groupId: string; expireDays?: number }>,
-) {
-    const { groupId, expireDays = 0 } = ctx.data;
-    assert(isValid(groupId), '无效的群组ID');
-
-    const group = await Group.findOne({ _id: groupId });
-    if (!group) {
-        throw new AssertionError({ message: '群组不存在' });
-    }
-
-    // 只有群主或管理员可以生成邀请链接
-    const isCreator = group.creator && group.creator.toString() === ctx.socket.user.toString();
-    assert(ctx.socket.isAdmin || isCreator, '只有群主或管理员可以分享邀请链接');
-
-    const days = Number(expireDays) || 0;
-    assert(days >= 0 && days <= 3650, '有效期天数不合法');
-    const exp = days === 0 ? 0 : Date.now() + days * 24 * 60 * 60 * 1000;
-
-    const token = jwt.encode({ groupId, exp }, config.inviteSecret);
-    return { token, exp };
-}
-
-/**
- * 修改私密群密码（群主/管理员）
- */
-export async function updatePrivateGroupPassword(
-    ctx: Context<{ groupId: string; password: string }>,
-) {
-    const { groupId, password } = ctx.data;
-    assert(isValid(groupId), '无效的群组ID');
-
-    const group = await Group.findOne({ _id: groupId }).select('+passwordHash isPrivate creator');
-    if (!group) {
-        throw new AssertionError({ message: '群组不存在' });
-    }
-    assert(group.isPrivate, '该群组不是私密群');
-
-    const isCreator = group.creator && group.creator.toString() === ctx.socket.user.toString();
-    assert(ctx.socket.isAdmin || isCreator, '只有群主或管理员可以修改私密群密码');
-
-    assert(password && password.trim().length > 0, '请输入密码！');
-    assert(password.trim().length >= 4, '密码至少需要4位');
-    assert(password.trim().length <= 64, '密码长度不能超过64位');
-
-    group.passwordHash = await bcrypt.hash(
-        password.trim(),
-        await bcrypt.genSalt(SALT_ROUNDS),
-    );
-    await group.save();
-
-    return {};
-}
-
-/**
- * 解散群组（仅管理员；公开/私密一样）
- */
-export async function dissolveGroup(ctx: Context<{ groupId: string }>) {
-    const { groupId } = ctx.data;
-    assert(isValid(groupId), '无效的群组ID');
-    assert(ctx.socket.isAdmin, '只有管理员可以解散群组');
-
-    const group = await Group.findOne({ _id: groupId });
-    if (!group) {
-        throw new AssertionError({ message: '群组不存在' });
-    }
-    assert(!group.isDefault, '默认群组不可解散');
-
-    await Message.deleteMany({ toGroup: groupId });
-    await Group.deleteOne({ _id: groupId });
-    return {};
-}
-
-
-/**
- * 修改私密群密码（群主或管理员）
- */
-export async function updateGroupPassword(
-    ctx: Context<{ groupId: string; password: string }>,
-) {
-    const { groupId, password } = ctx.data;
-    assert(isValid(groupId), '无效的群组ID');
-    assert(password && password.trim().length > 0, '请输入密码！');
-    assert(password.trim().length >= 4, '密码至少需要4位');
-    assert(password.trim().length <= 64, '密码长度不能超过64位');
-
-    const group = await Group.findOne({ _id: groupId }).select('+passwordHash isPrivate creator');
-    if (!group) {
-        throw new AssertionError({ message: '群组不存在' });
-    }
-    assert(group.isPrivate, '该群组不是私密群');
-    const isCreator = group.creator && group.creator.toString() === ctx.socket.user.toString();
-    assert(ctx.socket.isAdmin || isCreator, '只有群主或管理员可以修改密码');
-
-    group.passwordHash = await bcrypt.hash(
-        password.trim(),
-        await bcrypt.genSalt(SALT_ROUNDS),
-    );
-    await group.save();
-
-    return {};
 }

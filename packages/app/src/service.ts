@@ -172,8 +172,8 @@ export async function changeGroupAvatar(groupId: string, avatar: string) {
  * 创建群组
  * @param name 群组名
  */
-export async function createGroup(name: string, isPrivate = false, password = '') {
-    const [, group] = await fetch('createGroup', { name, isPrivate, password });
+export async function createGroup(name: string) {
+    const [, group] = await fetch('createGroup', { name });
     return group;
 }
 
@@ -190,8 +190,8 @@ export async function deleteGroup(groupId: string) {
  * 加入群组
  * @param groupId 群组id
  */
-export async function joinGroup(groupId: string, password = '') {
-    const [, group] = await fetch('joinGroup', { groupId, password });
+export async function joinGroup(groupId: string) {
+    const [, group] = await fetch('joinGroup', { groupId });
     return group;
 }
 

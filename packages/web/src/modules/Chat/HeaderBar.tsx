@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSelector } from 'react-redux';
+import CopyToClipboard from 'react-copy-to-clipboard';
 import { css } from 'linaria';
 
 import { isMobile } from '@fiora/utils/ua';
@@ -8,10 +9,6 @@ import useIsLogin from '../../hooks/useIsLogin';
 import useAction from '../../hooks/useAction';
 import IconButton from '../../components/IconButton';
 import Message from '../../components/Message';
-import Dialog from '../../components/Dialog';
-import Input from '../../components/Input';
-import Button from '../../components/Button';
-import fetch from '../../utils/fetch';
 
 import Style from './HeaderBar.less';
 import useAero from '../../hooks/useAero';
@@ -55,38 +52,8 @@ function HeaderBar(props: Props) {
     );
     const aero = useAero();
 
-    const [shareVisible, setShareVisible] = useState(false);
-    const [shareType, setShareType] = useState<'permanent' | 'custom'>('permanent');
-    const [shareDays, setShareDays] = useState('7');
-
-    async function handleShareGroup() {
-        // 打开覆盖在聊天页上的小界面（非跳转）
-        setShareVisible(true);
-    }
-
-    async function handleConfirmShare() {
-        if (type !== 'group') return;
-        const days = shareType === 'permanent' ? 0 : Math.max(1, Math.min(3650, parseInt(shareDays || '0', 10)));
-        const [error, res] = await fetch('createGroupInviteLink', { groupId: id, expireDays: days });
-        if (error) {
-            Message.error(String(error));
-            return;
-        }
-        const token = (res as any).token as string;
-        const link = `${window.location.origin}/invite/group/${id}?token=${encodeURIComponent(token)}`;
-        try {
-            await navigator.clipboard.writeText(link);
-        } catch (e) {
-            // fallback
-            const input = document.createElement('input');
-            input.value = link;
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-        }
-        setShareVisible(false);
-        Message.success('已复制邀请链接到粘贴板');
+    function handleShareGroup() {
+        Message.success('已复制邀请链接到粘贴板, 去邀请其它人加入群组吧');
     }
 
     return (
@@ -151,7 +118,9 @@ function HeaderBar(props: Props) {
                     data-fiora="chat-header-buttons"
                 >
                     {type === 'group' && (
-                        <CopyToClipboard text={`${window.location.origin}/invite/group/${id}`}>
+                        <CopyToClipboard
+                            text={`${window.location.origin}/invite/group/${id}`}
+                        >
                             <IconButton
                                 width={40}
                                 height={40}
@@ -172,44 +141,6 @@ function HeaderBar(props: Props) {
             ) : (
                 <div className={`${Style.buttonContainer} buttonContainer`} data-fiora="chat-header-buttons" />
             )}
-
-<Dialog
-    title="分享邀请链接"
-    visible={shareVisible}
-    onClose={() => setShareVisible(false)}
->
-    <div style={{ padding: 8 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-            <label>
-                <input
-                    type="radio"
-                    checked={shareType === 'custom'}
-                    onChange={() => setShareType('custom')}
-                />
-                自定义
-            </label>
-            <label>
-                <input
-                    type="radio"
-                    checked={shareType === 'permanent'}
-                    onChange={() => setShareType('permanent')}
-                />
-                永久
-            </label>
-        </div>
-        {shareType === 'custom' ? (
-            <Input
-                value={shareDays}
-                onChange={setShareDays}
-                placeholder="有效期（天）"
-            />
-        ) : null}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <Button onClick={handleConfirmShare}>生成并复制链接</Button>
-        </div>
-    </div>
-</Dialog>
-
         </div>
     );
 }

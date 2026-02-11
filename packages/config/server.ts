@@ -151,67 +151,6 @@ export default {
             : 10,
     },
 
-    /** 安全策略（可通过环境变量覆盖）
-     *
-     * 登录错误封禁（A 前缀）：
-     * - AErrorCount: 触发封禁的错误次数（0 表示不启用）
-     * - AFirstBanTime: 第一次封禁时长（小时，0 表示不启用）
-     * - ASecondBanTime: 第二次封禁时长（天，0 表示不启用）
-     *
-     * 加入私密群密码错误封禁（G 前缀）：
-     * - GErrorCount: 触发封禁的错误次数（0 表示不启用）
-     * - GFirstBanTime: 第一次封禁时长（小时，0 表示不启用）
-     * - GSecondBanTime: 第二次封禁时长（天，0 表示不启用）
-     *
-     * 忘记密码/邮箱验证码等每日次数限制：
-     * - PasswordReset: 一天允许重置密码的次数（0 表示不限制，默认 1）
-     */
-    security: {
-        login: {
-            errorCount: env.AErrorCount ? parseInt(env.AErrorCount, 10) : 3,
-            firstBanHours: env.AFirstBanTime ? parseInt(env.AFirstBanTime, 10) : 1,
-            secondBanDays: env.ASecondBanTime ? parseInt(env.ASecondBanTime, 10) : 1,
-        },
-        group: {
-            errorCount: env.GErrorCount ? parseInt(env.GErrorCount, 10) : 3,
-            firstBanHours: env.GFirstBanTime ? parseInt(env.GFirstBanTime, 10) : 1,
-            secondBanDays: env.GSecondBanTime ? parseInt(env.GSecondBanTime, 10) : 1,
-        },
-        passwordResetPerDay: env.PasswordReset ? parseInt(env.PasswordReset, 10) : 1,
-    },
-
-    /** 2FA(TOTP) Secret 加密密钥（AES-256-GCM）。默认复用 JwtSecret（建议单独配置） */
-    totpEncryptKey: env.TOTP_ENC_KEY || env.JwtSecret || 'jwtSecret',
-
-    /** SMTP 邮件发送配置 */
-    smtp: {
-        enable: env.SMTP_ENABLE ? env.SMTP_ENABLE === 'true' : false,
-        host: env.SMTP_HOST || '',
-        port: env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : 587,
-        secure: env.SMTP_SECURE ? env.SMTP_SECURE === 'true' : false,
-        user: env.SMTP_USER || '',
-        pass: env.SMTP_PASS || '',
-        from: env.SMTP_FROM || env.SMTP_USER || '',
-    },
-
-    /** 注册/邀请策略（对齐 Vaultwarden 常用变量名）
-     * - SIGNUPS_ALLOWED: 是否允许新用户注册
-     * - INVITATIONS_ALLOWED: 是否允许邀请注册（管理员邀请）
-     * - SIGNUPS_DOMAINS_WHITELIST: 允许注册的邮箱域名白名单（设置后将忽略 SIGNUPS_ALLOWED）
-     * - SIGNUPS_VERIFY: 是否要求邮箱验证（本项目实现为“邀请链接 token 校验” + 可选 SMTP 发送）
-     * - SIGNUPS_DOMAINS_BLACKLIST: （扩展）禁止注册的邮箱域名黑名单
-     */
-    signup: {
-        signupsAllowed: env.SIGNUPS_ALLOWED ? env.SIGNUPS_ALLOWED === 'true' : true,
-        invitationsAllowed: env.INVITATIONS_ALLOWED ? env.INVITATIONS_ALLOWED === 'true' : true,
-        signupsDomainsWhitelist: env.SIGNUPS_DOMAINS_WHITELIST || '',
-        signupsDomainsBlacklist: env.SIGNUPS_DOMAINS_BLACKLIST || '',
-        signupsVerify: env.SIGNUPS_VERIFY ? env.SIGNUPS_VERIFY === 'true' : false,
-    },
-
-    /** 邀请链接签名密钥（默认复用 jwtSecret） */
-    inviteSecret: env.INVITE_SECRET || env.JwtSecret || 'jwtSecret',
-
     /** LDAP 认证配置 */
     ldap: {
         enable: env.LDAP_ENABLE ? env.LDAP_ENABLE === "true" : false,

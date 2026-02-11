@@ -32,7 +32,6 @@ export default function isAdmin(socket: Socket) {
         'adminGetGroupUsers',
         'hardDeleteMessage',
         'hardDeleteUser',
-        'adminRemoveTotp',
     ]);
     return async ([event, , cb]: MiddlewareArgs, next: MiddlewareNext) => {
         socket.data.isAdmin =

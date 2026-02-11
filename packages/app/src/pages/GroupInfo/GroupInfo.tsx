@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, Text, View } from 'native-base';
 import { StyleSheet } from 'react-native';
 import { Actions } from 'react-native-router-flux';
-import Dialog from 'react-native-dialog';
 import PageContainer from '../../components/PageContainer';
 import Avatar from '../../components/Avatar';
-import { useFocusLinkman, useLinkmans, useIsAdmin } from '../../hooks/useStore';
+import { useFocusLinkman, useLinkmans } from '../../hooks/useStore';
 import { Linkman } from '../../types/redux';
 import action from '../../state/action';
 import { getLinkmanHistoryMessages, joinGroup } from '../../service';
@@ -16,7 +15,6 @@ type Props = {
         avatar: string;
         name: string;
         members: number;
-        isPrivate?: boolean;
     };
 };
 
@@ -28,9 +26,6 @@ function GroupInfo({ group }: Props) {
     ) as Linkman;
     const isJoined = !!linkman;
     const currentLinkman = useFocusLinkman() as Linkman;
-    const isAdmin = useIsAdmin();
-    const [passwordDialogVisible, setPasswordDialogVisible] = useState(false);
-    const [joinPassword, setJoinPassword] = useState('');
 
     function handleSendMessage() {
         action.setFocus(group._id);
@@ -42,8 +37,8 @@ function GroupInfo({ group }: Props) {
         }
     }
 
-    async function doJoin(password = '') {
-        const newLinkman = await joinGroup(_id, password);
+    async function handleJoinGroup() {
+        const newLinkman = await joinGroup(_id);
         if (newLinkman) {
             action.addLinkman({
                 ...newLinkman,
@@ -58,22 +53,6 @@ function GroupInfo({ group }: Props) {
             Actions.popTo('_chatlist');
             Actions.push('chat', { title: newLinkman.name });
         }
-    }
-
-    async function handleJoinGroup() {
-        // 私密群：非管理员需要输入密码
-        if (group.isPrivate && !isAdmin) {
-            setJoinPassword('');
-            setPasswordDialogVisible(true);
-            return;
-        }
-        await doJoin('');
-    }
-
-    async function handleConfirmPassword() {
-        setPasswordDialogVisible(false);
-        await doJoin(joinPassword);
-        setJoinPassword('');
     }
 
     return (
@@ -111,27 +90,6 @@ function GroupInfo({ group }: Props) {
                     )}
                 </View>
             </View>
-
-            <Dialog.Container visible={passwordDialogVisible}>
-                <Dialog.Title>加入私密群组</Dialog.Title>
-                <Dialog.Description>请输入密码</Dialog.Description>
-                <Dialog.Input
-                    value={joinPassword}
-                    onChangeText={setJoinPassword}
-                    placeholder="请输入密码！"
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                />
-                <Dialog.Button
-                    label="取消"
-                    onPress={() => {
-                        setPasswordDialogVisible(false);
-                        setJoinPassword('');
-                    }}
-                />
-                <Dialog.Button label="确定" onPress={handleConfirmPassword} />
-            </Dialog.Container>
         </PageContainer>
     );
 }

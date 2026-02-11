@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import fetch from '../utils/fetch';
 import Dialog from '../components/Dialog';
-import Input from '../components/Input';
 import Avatar from '../components/Avatar';
 
 import Style from './InfoDialog.less';
@@ -16,17 +15,14 @@ type GroupBasicInfo = {
     name: string;
     avatar: string;
     members: number;
-    isPrivate?: boolean;
 };
 
 function InviteInfo() {
     const groupId = window.sessionStorage.getItem('inviteGroupId') || '';
-    const inviteToken = window.sessionStorage.getItem('inviteToken') || '';
     const action = useAction();
     const [visible, updateVisible] = useState(!!groupId);
     const [group, updateGroup] = useState<GroupBasicInfo>();
     const [largerAvatar, toggleLargetAvatar] = useState(false);
-    const [joinPassword, setJoinPassword] = useState('');
     const selfId = useSelector((state: State) => state.user?._id);
     const hasLinkman = useSelector((state: State) => !!state.linkmans[groupId]);
 
@@ -37,7 +33,6 @@ function InviteInfo() {
         (async () => {
             const [error, groupInfo] = await fetch('getGroupBasicInfo', {
                 groupId,
-                inviteToken,
             });
             if (!error) {
                 updateGroup((groupInfo as unknown) as GroupBasicInfo);
@@ -47,7 +42,6 @@ function InviteInfo() {
 
     function clearInviteId() {
         window.sessionStorage.removeItem('inviteGroupId');
-        window.sessionStorage.removeItem('inviteToken');
     }
 
     function handleClose() {
@@ -55,7 +49,7 @@ function InviteInfo() {
     }
 
     async function handleJoinGroup() {
-        const groupRes = await joinGroup(groupId, joinPassword);
+        const groupRes = await joinGroup(groupId);
         if (groupRes) {
             groupRes.type = 'group';
             action.addLinkman(groupRes, true);
@@ -101,16 +95,6 @@ function InviteInfo() {
                         <p>{group.name}</p>
                     </div>
                     <div className={Style.info}>
-
-{group.isPrivate ? (
-    <Input
-        className={Style.input}
-        type="password"
-        value={joinPassword}
-        placeholder="请输入密码！"
-        onChange={setJoinPassword}
-    />
-) : null}
                         <div className={Style.onlineStatus}>
                             <p className={Style.onlineText}>成员:</p>
                             <div>{group.members}人</div>

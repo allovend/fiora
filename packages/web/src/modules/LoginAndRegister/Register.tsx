@@ -17,10 +17,6 @@ function Register() {
     const dispatch = useDispatch();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const inviteToken = (() => {
-        const m = window.location.href.match(/[?&#]invite=([^&]+)/);
-        return m ? decodeURIComponent(m[1]) : '';
-    })();
 
     async function handleRegister() {
         const user = await register(
@@ -29,7 +25,6 @@ function Register() {
             platform.os?.family,
             platform.name,
             platform.description,
-            inviteToken,
         );
         if (user) {
             action.setUser(user);

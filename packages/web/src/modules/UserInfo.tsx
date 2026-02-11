@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 
 import getFriendId from '@fiora/utils/getFriendId';
 import { getOSSFileUrl } from '../utils/uploadFile';
@@ -9,7 +9,6 @@ import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import Message from '../components/Message';
 import { State, Linkman } from '../state/reducer';
-import { ActionTypes } from '../state/action';
 import useAction from '../hooks/useAction';
 import {
     addFriend,
@@ -18,14 +17,7 @@ import {
     sealUser,
     getUserIps,
     sealUserOnlineIp,
-    beginTotpSetup,
-    enableTotp,
-    disableTotp,
 } from '../service';
-
-import QRCode from 'qrcode.react';
-
-import QRCode from 'qrcode.react';
 
 interface UserInfoProps {
     visible: boolean;
@@ -42,24 +34,10 @@ interface UserInfoProps {
 function UserInfo(props: UserInfoProps) {
     const { visible, onClose, user } = props;
 
-    const dispatch = useDispatch();
-
     const action = useAction();
 
     const selfId =
         useSelector((state: State) => state.user && state.user._id) || '';
-    const selfTotpEnabled = !!useSelector(
-        (state: State) => state.user && (state.user as any).totpEnabled,
-    );
-    const isSelf = !!user && user._id === selfId;
-
-    // 2FA (TOTP)
-    const [totpDialogVisible, setTotpDialogVisible] = useState(false);
-    const [totpSetup, setTotpSetup] = useState<
-        { otpauthUrl: string; secret?: string } | null
-    >(null);
-    const [totpCode, setTotpCode] = useState('');
-    const [totpPassword, setTotpPassword] = useState('');
     // 获取好友id
     if (user && user._id.length === selfId.length) {
         user._id = getFriendId(selfId, user._id);
@@ -76,61 +54,6 @@ function UserInfo(props: UserInfoProps) {
     const [largerAvatar, toggleLargetAvatar] = useState(false);
 
     const [userIps, setUserIps] = useState([]);
-
-    async function handleOpenTotp() {
-        if (!isSelf) return;
-        setTotpDialogVisible(true);
-        setTotpCode('');
-        setTotpPassword('');
-        setTotpSetup(null);
-    }
-
-    function closeTotpDialog() {
-        setTotpDialogVisible(false);
-        setTotpCode('');
-        setTotpPassword('');
-        setTotpSetup(null);
-    }
-
-    async function handleBeginTotpSetup() {
-        const res = await beginTotpSetup();
-        if (!res) return;
-        setTotpSetup(res);
-    }
-
-    async function handleEnableTotp() {
-        if (!totpCode.trim()) {
-            Message.error('请输入2FA验证码');
-            return;
-        }
-        const res = await enableTotp(totpCode.trim());
-        if (!res) return;
-        dispatch({
-            type: ActionTypes.UpdateUserInfo,
-            payload: { totpEnabled: true },
-        });
-        Message.success('已启用两步验证');
-        closeTotpDialog();
-    }
-
-    async function handleDisableTotp() {
-        if (!totpPassword) {
-            Message.error('请输入登录密码');
-            return;
-        }
-        if (!totpCode.trim()) {
-            Message.error('请输入2FA验证码');
-            return;
-        }
-        const res = await disableTotp(totpPassword, totpCode.trim());
-        if (!res) return;
-        dispatch({
-            type: ActionTypes.UpdateUserInfo,
-            payload: { totpEnabled: false },
-        });
-        Message.success('已关闭两步验证');
-        closeTotpDialog();
-    }
 
     useEffect(() => {
         if (isAdmin && user && user._id) {
@@ -221,173 +144,74 @@ function UserInfo(props: UserInfoProps) {
     }
 
     return (
-        <>
-            <Dialog
-                className={Style.infoDialog}
-                visible={visible}
-                onClose={handleClose}
-            >
-                <div>
-                    {visible && user ? (
-                        <div className={Style.coantainer}>
-                            <div className={Style.header}>
-                                <Avatar
-                                    size={60}
-                                    src={user.avatar}
-                                    onMouseEnter={() =>
-                                        toggleLargetAvatar(true)
-                                    }
-                                    onMouseLeave={() =>
-                                        toggleLargetAvatar(false)
-                                    }
-                                />
-                                <img
-                                    className={`${Style.largeAvatar} ${
-                                        largerAvatar ? 'show' : 'hide'
-                                    }`}
-                                    src={getOSSFileUrl(user.avatar)}
-                                    alt="用户头像"
-                                />
-                                <p>{user.username}</p>
-                                <p className={Style.ip}>
-                                    {userIps.map((ip) => (
-                                        <span
-                                            key={ip}
-                                            onClick={() => searchIp(ip)}
-                                            role="button"
-                                        >
-                                            {ip}
-                                        </span>
-                                    ))}
-                                </p>
-                            </div>
-                            <div className={Style.info}>
-                                {isFriend ? (
-                                    <Button onClick={handleFocusUser}>
-                                        发送消息
-                                    </Button>
-                                ) : null}
-                                {isFriend ? (
-                                    <Button
-                                        type="danger"
-                                        onClick={handleDeleteFriend}
+        <Dialog
+            className={Style.infoDialog}
+            visible={visible}
+            onClose={handleClose}
+        >
+            <div>
+                {visible && user ? (
+                    <div className={Style.coantainer}>
+                        <div className={Style.header}>
+                            <Avatar
+                                size={60}
+                                src={user.avatar}
+                                onMouseEnter={() => toggleLargetAvatar(true)}
+                                onMouseLeave={() => toggleLargetAvatar(false)}
+                            />
+                            <img
+                                className={`${Style.largeAvatar} ${
+                                    largerAvatar ? 'show' : 'hide'
+                                }`}
+                                src={getOSSFileUrl(user.avatar)}
+                                alt="用户头像"
+                            />
+                            <p>{user.username}</p>
+                            <p className={Style.ip}>
+                                {userIps.map((ip) => (
+                                    <span
+                                        key={ip}
+                                        onClick={() => searchIp(ip)}
+                                        role="button"
                                     >
-                                        删除好友
-                                    </Button>
-                                ) : (
-                                    <Button onClick={handleAddFriend}>
-                                        加为好友
-                                    </Button>
-                                )}
-                                {isSelf ? (
-                                    <Button onClick={handleOpenTotp}>
-                                        {selfTotpEnabled
-                                            ? '管理两步验证'
-                                            : '开启两步验证'}
-                                    </Button>
-                                ) : null}
-                                {isAdmin ? (
-                                    <Button type="danger" onClick={handleSeal}>
-                                        封禁用户
-                                    </Button>
-                                ) : null}
-                                {isAdmin ? (
-                                    <Button
-                                        type="danger"
-                                        onClick={handleSealIp}
-                                    >
-                                        封禁ip
-                                    </Button>
-                                ) : null}
-                            </div>
+                                        {ip}
+                                    </span>
+                                ))}
+                            </p>
                         </div>
-                    ) : null}
-                </div>
-            </Dialog>
-
-            <Dialog
-                className={Style.infoDialog}
-                visible={totpDialogVisible}
-                onClose={closeTotpDialog}
-            >
-                <div style={{ padding: 12, width: 360 }}>
-                    <h3 style={{ margin: '0 0 10px 0' }}>两步验证 (2FA)</h3>
-                    <p style={{ margin: '0 0 12px 0', opacity: 0.8 }}>
-                        使用验证器 App（如 Google Authenticator、Microsoft Authenticator）
-                        扫描二维码生成 6 位验证码。
-                    </p>
-
-                    {selfTotpEnabled ? (
-                        <>
-                            <p style={{ margin: '0 0 10px 0' }}>
-                                当前状态：<b>已启用</b>
-                            </p>
-                            <div style={{ marginBottom: 10 }}>
-                                <input
-                                    type="password"
-                                    placeholder="请输入登录密码"
-                                    value={totpPassword}
-                                    onChange={(e) =>
-                                        setTotpPassword(e.target.value)
-                                    }
-                                    style={{ width: '100%', padding: 8 }}
-                                />
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <input
-                                    placeholder="请输入 6 位验证码"
-                                    value={totpCode}
-                                    onChange={(e) => setTotpCode(e.target.value)}
-                                    style={{ width: '100%', padding: 8 }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <Button type="danger" onClick={handleDisableTotp}>
-                                    关闭两步验证
+                        <div className={Style.info}>
+                            {isFriend ? (
+                                <Button onClick={handleFocusUser}>
+                                    发送消息
                                 </Button>
-                                <Button onClick={closeTotpDialog}>取消</Button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <p style={{ margin: '0 0 10px 0' }}>
-                                当前状态：<b>未启用</b>
-                            </p>
-                            {!totpSetup ? (
-                                <Button onClick={handleBeginTotpSetup}>
-                                    开始设置
+                            ) : null}
+                            {isFriend ? (
+                                <Button
+                                    type="danger"
+                                    onClick={handleDeleteFriend}
+                                >
+                                    删除好友
                                 </Button>
                             ) : (
-                                <>
-                                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                                        <QRCode value={totpSetup.otpauthUrl} size={168} />
-                                    </div>
-                                    {totpSetup.secret ? (
-                                        <p style={{ margin: '0 0 10px 0', wordBreak: 'break-all' }}>
-                                            备用密钥：<code>{totpSetup.secret}</code>
-                                        </p>
-                                    ) : null}
-                                    <div style={{ marginBottom: 12 }}>
-                                        <input
-                                            placeholder="请输入 6 位验证码"
-                                            value={totpCode}
-                                            onChange={(e) => setTotpCode(e.target.value)}
-                                            style={{ width: '100%', padding: 8 }}
-                                        />
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <Button onClick={handleEnableTotp}>
-                                            确认启用
-                                        </Button>
-                                        <Button onClick={closeTotpDialog}>取消</Button>
-                                    </div>
-                                </>
+                                <Button onClick={handleAddFriend}>
+                                    加为好友
+                                </Button>
                             )}
-                        </>
-                    )}
-                </div>
-            </Dialog>
-        </>
+                            {isAdmin ? (
+                                <Button type="danger" onClick={handleSeal}>
+                                    封禁用户
+                                </Button>
+                            ) : null}
+                            {isAdmin ? (
+                                <Button type="danger" onClick={handleSealIp}>
+                                    封禁ip
+                                </Button>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        </Dialog>
     );
 }
 

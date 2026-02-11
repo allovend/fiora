@@ -16,17 +16,13 @@ function CreateGroup(props: CreateGroupProps) {
     const { visible, onClose } = props;
     const action = useAction();
     const [groupName, setGroupName] = useState('');
-    const [isPrivate, setIsPrivate] = useState(false);
-    const [password, setPassword] = useState('');
 
     async function handleCreateGroup() {
-        const group = await createGroup(groupName, isPrivate, password);
+        const group = await createGroup(groupName);
         if (group) {
             group.type = 'group';
             action.addLinkman(group, true);
             setGroupName('');
-            setIsPrivate(false);
-            setPassword('');
             onClose();
             Message.success('创建群组成功');
         }
@@ -41,32 +37,6 @@ function CreateGroup(props: CreateGroupProps) {
                     value={groupName}
                     onChange={setGroupName}
                 />
-
-                <div className={Style.privacyRow}>
-                    <span className={Style.privacyLabel}>群组权限</span>
-                    <button
-                        type="button"
-                        className={`${Style.privacySwitch} ${
-                            isPrivate ? Style.privateOn : ''
-                        }`}
-                        onClick={() => setIsPrivate(!isPrivate)}
-                        aria-pressed={isPrivate}
-                    >
-                        <span className={Style.switchTextLeft}>公开</span>
-                        <span className={Style.switchThumb} />
-                        <span className={Style.switchTextRight}>私密</span>
-                    </button>
-                </div>
-
-                {isPrivate ? (
-                    <Input
-                        className={Style.passwordInput}
-                        type="password"
-                        value={password}
-                        placeholder="请输入密码！"
-                        onChange={setPassword}
-                    />
-                ) : null}
                 <button
                     className={Style.button}
                     onClick={handleCreateGroup}

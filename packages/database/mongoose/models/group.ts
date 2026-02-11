@@ -34,19 +34,6 @@ const GroupSchema = new Schema({
         type: Boolean,
         default: false,
     },
-
-    /** 是否私密群组（需要密码才能加入，管理员白名单） */
-    isPrivate: {
-        type: Boolean,
-        default: false,
-    },
-
-    /** 私密群组密码 hash（bcrypt），仅服务端使用 */
-    passwordHash: {
-        type: String,
-        default: '',
-        select: false,
-    },
 });
 
 export interface GroupDocument extends Document {
@@ -64,11 +51,6 @@ export interface GroupDocument extends Document {
     members: string[];
     /** 是否禁言（false表示不禁言，true表示禁言） */
     disableMute: boolean;
-
-    /** 是否私密群组 */
-    isPrivate: boolean;
-    /** 私密群组密码 hash（bcrypt），仅服务端使用） */
-    passwordHash?: string;
     /** 创建时间 */
     createTime: Date;
 }

@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import assert, { AssertionError } from 'assert';
 import jwt from 'jwt-simple';
 import { Types } from '@fiora/database/mongoose';
-import { authenticator } from 'otplib';
 
 import config from '@fiora/config/server';
 import logger from '@fiora/utils/logger';
@@ -19,9 +18,6 @@ import Notification from '@fiora/database/mongoose/models/notification';
 import History from '@fiora/database/mongoose/models/history';
 import { io } from '../app';
 import { authenticateWithLdap } from '../utils/ldap';
-import { checkBannedOrThrow, recordFailureAndMaybeBan, loginKeys, clearBan } from '../utils/ban';
-import { encryptText, decryptText } from '../utils/crypto';
-import { sendMail } from '../utils/mailer';
 
 import {
     getNewRegisteredUserIpKey,
@@ -30,45 +26,12 @@ import {
     getSealUserKey,
     DisableRegisterKey,
     Redis,
-    getEmailLoginCodeKey,
-    getEmailLoginSendCooldownKey,
 } from '@fiora/database/redis/initRedis';
 
 const { isValid } = Types.ObjectId;
 
 /** 一天时间 */
 const OneDay = 1000 * 60 * 60 * 24;
-
-
-
-function parseDomainList(listStr: string) {
-    return (listStr || '')
-        .split(',')
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean);
-}
-
-function getEmailDomain(username: string) {
-    const at = username.lastIndexOf('@');
-    return at === -1 ? '' : username.slice(at + 1).toLowerCase();
-}
-
-function normalizeIdentifier(input: string) {
-    const v = (input || '').trim();
-    // 邮箱不区分大小写
-    return v.includes('@') ? v.toLowerCase() : v;
-}
-
-async function findUserByIdentifier(identifier: string, withSecrets = false) {
-    const key = normalizeIdentifier(identifier);
-    let q = User.findOne({
-        $or: [{ username: key }, { email: key.toLowerCase() }],
-    });
-    if (withSecrets) {
-        q = q.select('+totpSecretEnc +totpTempSecretEnc');
-    }
-    return q;
-}
 
 interface Environment {
     /** 客户端系统 */
@@ -128,7 +91,7 @@ async function getUserNotificationTokens(user: UserDocument) {
  * @param ctx Context
  */
 export async function register(
-    ctx: Context<{ username: string; password: string; inviteToken?: string } & Environment>,
+    ctx: Context<{ username: string; password: string } & Environment>,
 ) {
     // 从 Redis 读取配置，如果不存在则从环境变量读取
     const disableRegisterRedis = await Redis.get(DisableRegisterKey);
@@ -139,42 +102,9 @@ export async function register(
     
     assert(!disableRegister, '注册功能已被禁用, 请联系管理员开通账号');
 
-    const { username, password, os, browser, environment, inviteToken } = ctx.data;
-
-    // Vaultwarden 风格注册策略（本项目将 username 视作邮箱使用这些策略）
-    const whitelist = parseDomainList(config.signup.signupsDomainsWhitelist);
-    const blacklist = parseDomainList(config.signup.signupsDomainsBlacklist);
-    const domain = getEmailDomain(username);
-
-    if (blacklist.length > 0) {
-        assert(domain && !blacklist.includes(domain), '该邮箱域名被禁止注册');
-    }
-
-    if (whitelist.length > 0) {
-        assert(domain && whitelist.includes(domain), '该邮箱域名不允许注册');
-    } else if (!config.signup.signupsAllowed) {
-        // 不允许自由注册：必须走邀请
-        assert(config.signup.invitationsAllowed, '注册功能已关闭，请联系管理员邀请');
-        assert(inviteToken, '注册需要邀请链接');
-        try {
-            const payload: any = jwt.decode(inviteToken, config.inviteSecret);
-            assert(payload && payload.email && payload.email.toLowerCase() === username.toLowerCase(), '邀请链接无效');
-            if (payload.exp && payload.exp > 0) {
-                assert(Date.now() <= payload.exp, '邀请链接已过期');
-            }
-        } catch (e) {
-            throw new AssertionError({ message: '邀请链接无效或已过期' });
-        }
-    }
+    const { username, password, os, browser, environment } = ctx.data;
     assert(username, '用户名不能为空');
     assert(password, '密码不能为空');
-
-    // 登录封禁检查（错误次数触发）
-    try {
-        await checkBannedOrThrow(loginKeys(username).banKey, '登录已被封禁，请稍后再试');
-    } catch (e: any) {
-        throw new AssertionError({ message: e.message || '登录已被封禁，请稍后再试' });
-    }
 
     // 检查用户名是否被封禁
     try {
@@ -219,7 +149,6 @@ export async function register(
     try {
         newUser = await User.create({
             username,
-            email: username.includes('@') ? username.toLowerCase() : '',
             salt,
             password: hash,
             avatar: getRandomAvatar(),
@@ -281,23 +210,18 @@ export async function register(
 export async function login(
     ctx: Context<
         {
-            username: string; // 支持用户名或邮箱
+            username: string;
             password: string;
-            totpCode?: string;
             authType?: 'ldap' | 'local';
         } &
             Environment
     >,
 ) {
-    const { username, password, os, browser, environment, authType, totpCode } = ctx.data;
-    const identifier = normalizeIdentifier(username);
-    assert(identifier, '用户名不能为空');
+    const { username, password, os, browser, environment, authType } = ctx.data;
+    assert(username, '用户名不能为空');
     assert(password, '密码不能为空');
 
-    // 登录封禁检查（按输入的标识符：用户名/邮箱）
-    await checkBannedOrThrow(loginKeys(identifier).banKey, '登录已被封禁，请稍后再试');
-
-    let user = await findUserByIdentifier(identifier, true);
+    let user = await User.findOne({ username });
     let isLdapAuthenticated = false;
 
     // LDAP 优先（除非前端强制使用本地账号）
@@ -319,8 +243,7 @@ export async function login(
                     }
 
                     user = await User.create({
-                        username: identifier,
-                        email: identifier.includes('@') ? identifier.toLowerCase() : '',
+                        username,
                         salt: '',
                         password: '',
                         avatar: getRandomAvatar(),
@@ -355,32 +278,7 @@ export async function login(
     // 非 LDAP 登录时走本地密码校验
     if (!isLdapAuthenticated) {
         const isPasswordCorrect = bcrypt.compareSync(password, user.password);
-        if (!isPasswordCorrect) {
-            // 记录失败次数并可能触发封禁
-            try {
-                await recordFailureAndMaybeBan({ ...loginKeys(identifier), type: 'login' });
-            } catch (e) {
-                // Redis 异常降级：不影响登录错误提示
-                logger.error('[login] record ban failed:', e);
-            }
-            throw new AssertionError({ message: '密码错误' });
-        }
-
-        // 2FA：如果启用则必须校验
-        if ((user as any).totpEnabled) {
-            assert(totpCode, '需要2FA验证码');
-            const secret = decryptText((user as any).totpSecretEnc || '');
-            const ok = secret ? authenticator.check(String(totpCode).trim(), secret) : false;
-            if (!ok) {
-                throw new AssertionError({ message: '2FA验证码错误' });
-            }
-        }
-        // 登录成功：清理封禁计数
-        try {
-            await clearBan(loginKeys(identifier));
-        } catch (e) {
-            logger.error('[login] clear ban failed:', e);
-        }
+        assert(isPasswordCorrect, '密码错误');
         await handleNewUser(user);
     }
 
@@ -426,7 +324,6 @@ export async function login(
         _id: user._id,
         avatar: user.avatar,
         username: user.username,
-        email: (user as any).email || '',
         tag: user.tag,
         groups,
         friends,
@@ -434,125 +331,6 @@ export async function login(
         isAdmin: config.administrator.includes(user._id.toString()),
         notificationTokens,
         authProvider: (user as any).authProvider || 'local',
-        totpEnabled: !!(user as any).totpEnabled,
-    };
-}
-
-/**
- * 发送邮箱验证码用于登录（不依赖公网 URL）
- */
-export async function requestEmailLoginCode(ctx: Context<{ email: string }>) {
-    const email = normalizeIdentifier(ctx.data.email);
-    assert(email && email.includes('@'), '邮箱格式不正确');
-
-    // 发送频率限制：60 秒内只能发送一次
-    const cooldownKey = getEmailLoginSendCooldownKey(email);
-    const cooldown = await Redis.get(cooldownKey);
-    if (cooldown) {
-        return {};
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    // 防枚举：即便用户不存在也返回 ok
-    if (!user) {
-        await Redis.set(cooldownKey, '1', 60);
-        return {};
-    }
-
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    await Redis.set(getEmailLoginCodeKey(email), code, 10 * 60);
-    await Redis.set(cooldownKey, '1', 60);
-
-    await sendMail({
-        to: email,
-        subject: 'Fiora 登录验证码',
-        text: `你的登录验证码是：${code}\n\n该验证码 10 分钟内有效，请勿泄露给他人。`,
-    });
-
-    return {};
-}
-
-/**
- * 邮箱验证码登录
- */
-export async function loginByEmailCode(
-    ctx: Context<
-        {
-            email: string;
-            code: string;
-        } &
-            Environment
-    >,
-) {
-    const { email: rawEmail, code: rawCode, os, browser, environment } = ctx.data;
-    const email = normalizeIdentifier(rawEmail);
-    const code = String(rawCode || '').trim();
-    assert(email && email.includes('@'), '邮箱格式不正确');
-    assert(code, '请输入邮箱验证码');
-
-    // 登录封禁检查（按邮箱）
-    await checkBannedOrThrow(loginKeys(email).banKey, '登录已被封禁，请稍后再试');
-
-    const expected = await Redis.get(getEmailLoginCodeKey(email));
-    if (!expected || expected !== code) {
-        try {
-            await recordFailureAndMaybeBan({ ...loginKeys(email), type: 'login' });
-        } catch (e) {
-            logger.error('[loginByEmailCode] record ban failed:', e);
-        }
-        throw new AssertionError({ message: '验证码错误' });
-    }
-
-    // 成功：清理验证码与封禁计数
-    await Redis.del(getEmailLoginCodeKey(email));
-    try {
-        await clearBan(loginKeys(email));
-    } catch (e) {
-        logger.error('[loginByEmailCode] clear ban failed:', e);
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
-        throw new AssertionError({ message: '该用户不存在' });
-    }
-
-    // 2FA：邮箱验证码登录也需要校验（避免绕过）
-    if ((user as any).totpEnabled) {
-        throw new AssertionError({ message: '该账号已开启2FA，请使用密码登录并输入2FA验证码' });
-    }
-
-    user.lastLoginTime = new Date();
-    user.lastLoginIp = ctx.socket.ip;
-    await user.save();
-
-    const groups = await Group.find(
-        { members: user._id },
-        { _id: 1, name: 1, avatar: 1, creator: 1, createTime: 1 },
-    );
-    groups.forEach((group) => ctx.socket.join(group._id.toString()));
-    const friends = await Friend.find({ from: user._id }).populate('to', { avatar: 1, username: 1 });
-    const token = generateToken(user._id.toString(), environment);
-
-    ctx.socket.user = user._id.toString();
-    await Socket.updateOne(
-        { id: ctx.socket.id },
-        { user: user._id, os, browser, environment },
-    );
-    const notificationTokens = await getUserNotificationTokens(user);
-
-    return {
-        _id: user._id,
-        avatar: user.avatar,
-        username: user.username,
-        email: (user as any).email || '',
-        tag: user.tag,
-        groups,
-        friends,
-        token,
-        isAdmin: config.administrator.includes(user._id.toString()),
-        notificationTokens,
-        authProvider: (user as any).authProvider || 'local',
-        totpEnabled: !!(user as any).totpEnabled,
     };
 }
 
@@ -585,8 +363,6 @@ export async function loginByToken(
             username: 1,
             tag: 1,
             createTime: 1,
-            email: 1,
-            totpEnabled: 1,
         },
     );
     if (!user) {
@@ -640,8 +416,6 @@ export async function loginByToken(
         friends,
         isAdmin: config.administrator.includes(user._id.toString()),
         notificationTokens,
-        email: (user as any).email || '',
-        totpEnabled: !!(user as any).totpEnabled,
     };
 }
 
@@ -823,85 +597,6 @@ export async function changeUsername(ctx: Context<{ username: string }>) {
     return {
         msg: 'ok',
     };
-}
-
-/**
- * 开始 2FA(TOTP) 设置：生成临时密钥并返回二维码 URL
- */
-export async function beginTotpSetup(ctx: Context) {
-    const self = await User.findOne({ _id: ctx.socket.user }).select('+totpTempSecretEnc +totpSecretEnc');
-    if (!self) {
-        throw new AssertionError({ message: '用户不存在' });
-    }
-    const secret = authenticator.generateSecret();
-    const otpauthUrl = authenticator.keyuri(self.username, 'Fiora', secret);
-    (self as any).totpTempSecretEnc = encryptText(secret);
-    await self.save();
-    return { otpauthUrl, secret };
-}
-
-/**
- * 启用 2FA(TOTP)
- */
-export async function enableTotp(ctx: Context<{ code: string }>) {
-    const code = String(ctx.data.code || '').trim();
-    assert(code, '请输入2FA验证码');
-    const self = await User.findOne({ _id: ctx.socket.user }).select('+totpTempSecretEnc +totpSecretEnc');
-    if (!self) {
-        throw new AssertionError({ message: '用户不存在' });
-    }
-    const tempSecret = decryptText((self as any).totpTempSecretEnc || '');
-    assert(tempSecret, '请先开始设置2FA');
-    const ok = authenticator.check(code, tempSecret);
-    assert(ok, '2FA验证码错误');
-    (self as any).totpSecretEnc = encryptText(tempSecret);
-    (self as any).totpTempSecretEnc = '';
-    (self as any).totpEnabled = true;
-    await self.save();
-    return {};
-}
-
-/**
- * 禁用 2FA(TOTP)
- */
-export async function disableTotp(ctx: Context<{ password: string; code: string }>) {
-    const password = String(ctx.data.password || '');
-    const code = String(ctx.data.code || '').trim();
-    assert(password, '请输入登录密码');
-    assert(code, '请输入2FA验证码');
-    const self = await User.findOne({ _id: ctx.socket.user }).select('+totpSecretEnc +totpTempSecretEnc');
-    if (!self) {
-        throw new AssertionError({ message: '用户不存在' });
-    }
-    assert((self as any).authProvider !== 'ldap', 'LDAP 账号不支持此操作');
-    const isPasswordCorrect = bcrypt.compareSync(password, self.password);
-    assert(isPasswordCorrect, '密码错误');
-    const secret = decryptText((self as any).totpSecretEnc || '');
-    const ok = secret ? authenticator.check(code, secret) : false;
-    assert(ok, '2FA验证码错误');
-    (self as any).totpEnabled = false;
-    (self as any).totpSecretEnc = '';
-    (self as any).totpTempSecretEnc = '';
-    await self.save();
-    return {};
-}
-
-/**
- * 管理员强制移除用户 2FA（用于用户忘记 2FA 无法登录）
- */
-export async function adminRemoveTotp(ctx: Context<{ identifier: string }>) {
-    assert(ctx.socket.isAdmin, '只有管理员可以移除2FA');
-    const identifier = normalizeIdentifier(ctx.data.identifier);
-    assert(identifier, 'identifier不能为空');
-    const user = await findUserByIdentifier(identifier, true);
-    if (!user) {
-        throw new AssertionError({ message: '用户不存在' });
-    }
-    (user as any).totpEnabled = false;
-    (user as any).totpSecretEnc = '';
-    (user as any).totpTempSecretEnc = '';
-    await user.save();
-    return {};
 }
 
 /**
@@ -1124,31 +819,3 @@ function getUserOnlineStatusWrapper() {
     };
 }
 export const getUserOnlineStatus = getUserOnlineStatusWrapper();
-
-
-/**
- * 管理员邀请注册（对齐 Vaultwarden 的 invitations 思路）
- * - 本项目不内置 SMTP 时，直接返回 inviteToken，前端可自行复制/发送
- */
-export async function adminInviteRegister(
-    ctx: Context<{ email: string; expireDays?: number }>,
-) {
-    assert(ctx.socket.isAdmin, '只有管理员可以邀请注册');
-    assert(config.signup.invitationsAllowed, '管理员邀请已被禁用');
-    const email = (ctx.data.email || '').trim();
-    assert(email, '邮箱不能为空');
-    const days = Number(ctx.data.expireDays) || 7;
-    assert(days >= 0 && days <= 365, '有效期不合法');
-    const exp = days === 0 ? 0 : Date.now() + days * 24 * 60 * 60 * 1000;
-
-    const token = jwt.encode({ email, exp }, config.inviteSecret);
-
-    return {
-        email,
-        token,
-        exp,
-        // 邮件内容由前端/运维自行发送，这里返回一个建议文本
-        subject: '注册邀请',
-        content: `allovend邀请你加入他的聊天室\n\n请使用此邀请链接注册：${config.host ? '' : ''}#/signup?invite=${token}`,
-    };
-}

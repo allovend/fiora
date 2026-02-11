@@ -10,7 +10,6 @@ import config from '@fiora/config/server';
 import logger from '@fiora/utils/logger';
 import User from '@fiora/database/mongoose/models/user';
 import Group from '@fiora/database/mongoose/models/group';
-import { clearBan, loginKeys, groupJoinKeys } from '../utils/ban';
 
 import Socket from '@fiora/database/mongoose/models/socket';
 import {
@@ -53,7 +52,7 @@ export async function search(ctx: Context<{ keywords: string }>) {
     );
     const groups = await Group.find(
         { name: { $regex: escapedKeywords } },
-        { avatar: 1, name: 1, members: 1, isPrivate: 1 },
+        { avatar: 1, name: 1, members: 1 },
     );
 
     return {
@@ -63,7 +62,6 @@ export async function search(ctx: Context<{ keywords: string }>) {
             avatar: group.avatar,
             name: group.name,
             members: group.members.length,
-            isPrivate: group.isPrivate || false,
         })),
     };
 }
@@ -803,28 +801,4 @@ export async function getAllOnlineUsers() {
     });
 
     return Array.from(userMap.values());
-}
-
-
-/**
- * 管理员解除用户登录封禁
- */
-export async function unbanLogin(ctx: Context<{ username: string }>) {
-    assert(ctx.socket.isAdmin, '只有管理员可以解除封禁');
-    const username = (ctx.data.username || '').trim();
-    assert(username, '用户名不能为空');
-    await clearBan(loginKeys(username));
-    return {};
-}
-
-/**
- * 管理员解除用户加入私密群封禁
- */
-export async function unbanGroupJoin(ctx: Context<{ userId: string; groupId: string }>) {
-    assert(ctx.socket.isAdmin, '只有管理员可以解除封禁');
-    const { userId, groupId } = ctx.data;
-    assert(userId, 'userId不能为空');
-    assert(groupId, 'groupId不能为空');
-    await clearBan(groupJoinKeys(userId, groupId));
-    return {};
 }

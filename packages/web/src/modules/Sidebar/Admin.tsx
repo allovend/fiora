@@ -25,7 +25,6 @@ import {
     unbanUsername,
     getBannedUsernameList,
     getAllOnlineUsers,
-    adminRemoveTotp,
 } from '../../service';
 
 const styles = {
@@ -75,7 +74,6 @@ function Admin(props: AdminProps) {
     const [tagUsername, setTagUsername] = useState('');
     const [tag, setTag] = useState('');
     const [resetPasswordUsername, setResetPasswordUsername] = useState('');
-    const [removeTotpIdentifier, setRemoveTotpIdentifier] = useState('');
     const [deleteUsername, setDeleteUsername] = useState('');
     const [sealUsername, setSealUsername] = useState('');
     const [sealDuration, setSealDuration] = useState('0'); // 0 代表永久
@@ -567,30 +565,6 @@ function Admin(props: AdminProps) {
                             const res = await resetUserPassword(resetPasswordUsername);
                             if (res) Message.success(`新密码:${res.newPassword}`);
                         }}>重置密码</Button>
-                    </div>
-                    <div className={Style.inputBlock} style={{ marginTop: '10px' }}>
-                        <Input
-                            className={Style.input}
-                            value={removeTotpIdentifier}
-                            onChange={setRemoveTotpIdentifier}
-                            placeholder="强制移除2FA（用户名或邮箱）"
-                        />
-                        <Button
-                            className={Style.button}
-                            onClick={async () => {
-                                if (!removeTotpIdentifier.trim()) {
-                                    Message.error('请输入用户名或邮箱');
-                                    return;
-                                }
-                                const ok = await adminRemoveTotp(removeTotpIdentifier.trim());
-                                if (ok !== null) {
-                                    Message.success('已强制移除2FA');
-                                    setRemoveTotpIdentifier('');
-                                }
-                            }}
-                        >
-                            移除2FA
-                        </Button>
                     </div>
                     <div className={Style.inputBlock} style={{ marginTop: '10px' }}>
                         <Input 

@@ -3,30 +3,6 @@ import logger from '@fiora/utils/logger';
 import { getSocketIp } from '@fiora/utils/socket';
 import { Socket } from 'socket.io';
 
-
-function sanitizeString(input: string) {
-    // 去除零宽字符、控制字符，避免隐藏注入（性能友好）
-    return (input || '')
-        .replace(/[\u200B-\u200F\uFEFF\u2060\u180E]/g, '')
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-        .trim();
-}
-
-function sanitizeObject<T>(data: T): T {
-    if (data === null || data === undefined) return data;
-    if (typeof data === 'string') return sanitizeString(data) as any;
-    if (Array.isArray(data)) return data.map((v) => sanitizeObject(v)) as any;
-    if (typeof data === 'object') {
-        const obj: any = data;
-        const out: any = {};
-        Object.keys(obj).forEach((k) => {
-            out[k] = sanitizeObject(obj[k]);
-        });
-        return out;
-    }
-    return data;
-}
-
 function defaultCallback() {
     logger.error('Server Error: emit event with callback');
 }
@@ -37,7 +13,7 @@ export default function registerRoutes(socket: Socket, routes: Routes) {
         if (route) {
             try {
                 const ctx: Context<any> = {
-                    data: sanitizeObject(data),
+                    data,
                     socket: {
                         id: socket.id,
                         ip: getSocketIp(socket),
