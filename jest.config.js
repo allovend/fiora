@@ -1,8 +1,7 @@
-
 module.exports = {
     preset: 'ts-jest',
     moduleNameMapper: {
-        '^.+\.(css|less|jpg|png|gif|mp3)$': '<rootDir>/jest.transformer.js',
+        '^.+\\.(css|less|jpg|png|gif|mp3)$': '<rootDir>/jest.transformer.js',
     },
     collectCoverage: true,
     globals: {
@@ -17,6 +16,5 @@ module.exports = {
         '!**/node_modules/**',
         '!**/config/**',
         '!**/test/helpers/**',
-        '!**/test/sensitive-data/**',  # Ensuring sensitive data is excluded from tests
     ],
 };

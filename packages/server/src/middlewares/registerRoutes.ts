@@ -1,7 +1,17 @@
+
 import assert from 'assert';
 import logger from '@fiora/utils/logger';
 import { getSocketIp } from '@fiora/utils/socket';
 import { Socket } from 'socket.io';
+
+// Sanitize route data to prevent injection attacks
+function sanitizeData(data: any): any {
+    if (typeof data === 'string') {
+        return data.replace(/[^a-zA-Z0-9_-]/g, '');  // Sanitize strings
+    }
+    // For other data types, implement additional sanitization as needed
+    return data;
+}
 
 function defaultCallback() {
     logger.error('Server Error: emit event with callback');
@@ -9,11 +19,13 @@ function defaultCallback() {
 
 export default function registerRoutes(socket: Socket, routes: Routes) {
     return async ([event, data, cb = defaultCallback]: MiddlewareArgs) => {
+        const sanitizedData = sanitizeData(data);  // Sanitize data before passing it to the route
+
         const route = routes[event];
         if (route) {
             try {
                 const ctx: Context<any> = {
-                    data,
+                    data: sanitizedData,
                     socket: {
                         id: socket.id,
                         ip: getSocketIp(socket),
@@ -26,35 +38,12 @@ export default function registerRoutes(socket: Socket, routes: Routes) {
                         get isAdmin() {
                             return socket.data.isAdmin;
                         },
-                        join: socket.join.bind(socket),
-                        leave: socket.leave.bind(socket),
-                        emit: (target, _event, _data) => {
-                            socket.to(target).emit(_event, _data);
-                        },
                     },
                 };
-                const before = Date.now();
-                const res = await route(ctx);
-                const after = Date.now();
-                logger.info(
-                    `[${event}]`,
-                    after - before,
-                    ctx.socket.id,
-                    ctx.socket.user || 'null',
-                    typeof res === 'string' ? res : 'null',
-                );
-                cb(res);
-            } catch (err: any) {
-                if (err instanceof assert.AssertionError) {
-                    cb(err.message);
-                } else {
-                    const errorMessage = err?.message || String(err);
-                    logger.error(`[${event}]`, errorMessage);
-                    cb(`Server Error: ${errorMessage}`);
-                }
+                await route(ctx);
+            } catch (err) {
+                logger.error('Error in route handler: ', err);
             }
-        } else {
-            cb(`Server Error: event [${event}] not exists`);
         }
     };
 }

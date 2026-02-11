@@ -1,3 +1,4 @@
+
 import { Socket } from 'socket.io';
 
 export const PLEASE_LOGIN = '请登录后再试';
@@ -17,7 +18,9 @@ export default function isLogin(socket: Socket) {
         'getGroupBasicInfo',
         'getSTS',
     ]);
+
     return async ([event, , cb]: MiddlewareArgs, next: MiddlewareNext) => {
+        // Ensure that only authorized routes are accessible if user is not logged in
         if (!noRequireLoginEvent.has(event) && !socket.data.user) {
             cb(PLEASE_LOGIN);
         } else {
