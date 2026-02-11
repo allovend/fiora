@@ -1,12 +1,24 @@
+
 version: '3.2'
 
 services:
   mongodb:
     image: mongo
     restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=your_root_username
+      - MONGO_INITDB_ROOT_PASSWORD=your_root_password
+    secrets:
+      - mongo_password
+
   redis:
     image: redis
     restart: always
+    environment:
+      - REDIS_PASSWORD=your_redis_password
+    secrets:
+      - redis_password
+
   fiora:
     build: .
     restart: always
@@ -15,3 +27,14 @@ services:
     environment:
       - Database=mongodb://mongodb/fiora
       - RedisHost=redis
+    secrets:
+      - fiora_db_password
+      - redis_password
+
+secrets:
+  mongo_password:
+    external: true
+  redis_password:
+    external: true
+  fiora_db_password:
+    external: true
