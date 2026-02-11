@@ -1,14 +1,8 @@
-
 #!/usr/bin/env ./node_modules/.bin/ts-node
 
 import { program } from 'commander';
 import cp from 'child_process';
 import i18n from './packages/i18n/node.index';
-
-// Sanitize input function to prevent command injection
-function sanitizeInput(input: string): string {
-    return input.replace(/[^a-zA-Z0-9_-]/g, '');  // Allow only alphanumeric characters and _ or -
-}
 
 function exec(commandStr: string) {
     const [command, ...args] = commandStr.split(' ');
@@ -19,9 +13,8 @@ program
     .command('getUserId <username>')
     .description(i18n('getUserIdDescription'))
     .action((username: string) => {
-        const sanitizedUsername = sanitizeInput(username);  // Sanitize input
         exec(
-            \`npx ts-node --transpile-only packages/bin/index.ts getUserId \${sanitizedUsername}\`,
+            `npx ts-node --transpile-only packages/bin/index.ts getUserId ${username}`,
         );
     });
 
@@ -29,10 +22,8 @@ program
     .command('register <username> <password>')
     .description(i18n('registerDescription'))
     .action((username: string, password: string) => {
-        const sanitizedUsername = sanitizeInput(username);  // Sanitize input
-        const sanitizedPassword = sanitizeInput(password);  // Sanitize input
         exec(
-            \`npx ts-node --transpile-only packages/bin/index.ts register \${sanitizedUsername} \${sanitizedPassword}\`,
+            `npx ts-node --transpile-only packages/bin/index.ts register ${username} ${password}`,
         );
     });
 
@@ -40,8 +31,63 @@ program
     .command('deleteUser <userId>')
     .description(i18n('deleteUserDescription'))
     .action((userId: string) => {
-        const sanitizedUserId = sanitizeInput(userId);  // Sanitize input
         exec(
-            \`npx ts-node --transpile-only packages/bin/index.ts deleteUser \${sanitizedUserId}\`,
+            `npx ts-node --transpile-only packages/bin/index.ts deleteUser ${userId}`,
         );
     });
+
+program
+    .command('fixUsersAvatar [searchValue] [replaceValue]')
+    .description(i18n('fixUsersAvatarDescription'))
+    .action((searchValue = '', replaceValue = '') => {
+        exec(
+            `npx ts-node --transpile-only packages/bin/index.ts fixUsersAvatar ${searchValue} ${replaceValue}`,
+        );
+    });
+
+program
+    .command('deleteTodayRegisteredUsers')
+    .description(i18n('deleteTodayRegisteredUsersDescription'))
+    .action(() => {
+        exec(
+            `npx ts-node --transpile-only packages/bin/index.ts deleteTodayRegisteredUsers`,
+        );
+    });
+
+program
+    .command('deleteMessages')
+    .description(i18n('deleteMessagesDescription'))
+    .action(() => {
+        exec(
+            `npx ts-node --transpile-only packages/bin/index.ts deleteMessages`,
+        );
+    });
+
+program
+    .command('updateDefaultGroupName <newName>')
+    .description(i18n('updateDefaultGroupNameDescription'))
+    .action((newName: string) => {
+        exec(
+            `npx ts-node --transpile-only packages/bin/index.ts updateDefaultGroupName ${newName}`,
+        );
+    });
+
+program
+    .command('doctor')
+    .description(i18n('doctorDescription'))
+    .action(() => {
+        exec(`npx ts-node --transpile-only packages/bin/index.ts doctor`);
+    });
+
+program
+    .command('setAdmin <usernameOrId>')
+    .description(i18n('setAdminDescription'))
+    .action((usernameOrId: string) => {
+        exec(
+            `npx ts-node --transpile-only packages/bin/index.ts setAdmin ${usernameOrId}`,
+        );
+    });
+
+program.usage('[command]');
+
+program.parse(process.argv);
