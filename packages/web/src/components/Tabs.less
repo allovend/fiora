@@ -1,0 +1,52 @@
+@import '../styles/variable.less';
+
+/**
+ * 修复 rc-tabs 的无障碍性问题
+ * 当标签页被隐藏时（aria-hidden="true"），移除其内部元素的 tabindex
+ * 这样可以避免"Blocked aria-hidden on an element because its descendant retained focus"警告
+ */
+:global {
+    /* 隐藏的标签页内容区域 */
+    .rc-tabs-tabpane[aria-hidden="true"] {
+        /* 移除所有可聚焦元素的 tabindex */
+        *[tabindex] {
+            tabindex: -1 !important;
+        }
+        
+        /* 移除所有可聚焦元素的 tabindex（包括 tabindex="0"） */
+        *[tabindex="0"] {
+            tabindex: -1 !important;
+        }
+        
+        /* 确保隐藏的元素不会获得焦点 */
+        * {
+            pointer-events: none !important;
+        }
+        
+        /* 移除所有输入元素的焦点能力 */
+        input,
+        textarea,
+        select,
+        button,
+        a,
+        [role="button"],
+        [role="link"],
+        [role="tab"],
+        [role="menuitem"] {
+            pointer-events: none !important;
+            tabindex: -1 !important;
+        }
+    }
+    
+    /* 修复 rc-tabs 的根容器 */
+    .rc-tabs-content[aria-hidden="true"] {
+        *[tabindex] {
+            tabindex: -1 !important;
+        }
+        
+        * {
+            pointer-events: none !important;
+        }
+    }
+}
+

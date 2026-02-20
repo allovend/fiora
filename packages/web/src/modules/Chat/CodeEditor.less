@@ -1,0 +1,58 @@
+@import '../../styles/variable.less';
+
+.codeEditor {
+    /* 大弹窗标准尺寸：600px */
+    width: 600px;
+    /* 确保居中显示，不设置定位属性，由基础样式层控制 */
+    position: relative;
+    top: auto;
+    transform: none;
+    margin: 0;
+
+    @media @mobile {
+        width: 100%;
+        height: 410px;
+    }
+
+    :global {
+        .rc-dialog-body {
+            overflow-y: hidden;
+        }
+    }
+}
+
+.container {
+    height: 55vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.selectContainer {
+    display: flex;
+    align-items: center;
+}
+
+.languageSelect {
+    width: 150px;
+    margin-left: 10px;
+}
+
+.title {
+    font-size: 14px;
+    font-weight: normal;
+    color: #666;
+}
+
+.editorContainer {
+    flex: 1;
+    margin-top: 10px;
+    border: 1px solid #f1f1f1;
+    border-radius: 2px;
+}
+
+.sendButton {
+    width: 100px;
+    height: 32px;
+    margin-top: 8px;
+    align-self: flex-end;
+}

@@ -1,0 +1,175 @@
+@import '../../styles/variable.less';
+
+.expression {
+    height: 100%;
+    
+    :global {
+        .rc-tabs {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .rc-tabs-content {
+            flex: 1;
+        }
+    }
+}
+
+.defaultExpression {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0 7px;
+}
+
+.defaultExpressionBlock {
+    width: 40px;
+    height: 40px;;
+    padding: 5px;
+    transition: all 0.3s;
+
+    &:hover {
+        background-color: #e9e9e9;
+        cursor: pointer;
+    }
+
+    @media @mobile {
+        width: 10%;
+        height: auto;
+    }
+}
+
+.defaultExpressionItem {
+    width: 30px;
+    height: 30px;
+    background-repeat: no-repeat;
+    background-size: 30px auto;
+    background-image: url('@fiora/assets/images/baidu.png');
+}
+
+.searchExpression {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px;
+    position: relative;
+}
+
+.searchExpressionInputBlock {
+    height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+.searchExpressionInput {
+    height: 34px;
+    flex: 1;
+}
+
+.searchExpressionButton {
+    height: 34px;
+    width: 100px;
+    margin-left: 12px;
+}
+
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.searchResult {
+    height: 155px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-left: 2px;
+}
+
+.searchImage {
+    width: 90px;
+    height: 90px;
+    margin: 0 4px;
+    display: inline-block;
+    position: relative;
+
+    & > img {
+        max-width: 90px;
+        max-height: 90px;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/**
+ * 我的表情包（Sticker）
+ * - 第一个格子：添加按钮
+ * - 点击：发送
+ * - 长按/右键：删除
+ */
+.myStickers {
+    width: 100%;
+    height: 100%;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.stickerGrid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: 180px;
+    padding-right: 2px;
+
+    @media @mobile {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+.stickerAdd,
+.stickerItem {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+        cursor: pointer;
+        transform: translateY(-1px);
+        border-color: rgba(0, 0, 0, 0.12);
+    }
+}
+
+.stickerAddPlus {
+    font-size: 26px;
+    line-height: 1;
+    color: rgba(0, 0, 0, 0.5);
+}
+
+.stickerImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.stickersLoading {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    opacity: 0.85;
+}

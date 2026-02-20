@@ -1,0 +1,62 @@
+.selfInfo {
+    /* 标准弹窗尺寸：500px */
+    height: initial !important;
+    width: 500px;
+    /* 确保居中显示，不设置定位属性，由基础样式层控制 */
+    position: relative;
+    top: auto;
+    transform: none;
+    margin: 0;
+}
+
+.changeAvatar {
+    position: relative;
+    .blur {
+        filter: blur(2px);
+    }
+}
+
+.cropper {
+    & > div {
+        margin-bottom: 8px;
+    }
+    .loading {
+        top: 170px;
+        left: 170px;
+    }
+}
+
+.preview {
+    & > img {
+        width: 100px;
+        height: 100px;
+        cursor: pointer;
+
+        &:hover {
+            filter: blur(3px);
+        }
+    }
+    .loading {
+        top: 10px;
+        left: 10px;
+    }
+}
+
+.loading {
+    position: absolute;
+    pointer-events: none;
+}
+
+@import '../../styles/variable.less';
+
+.input {
+    height: 36px;
+    margin-bottom: 8px;
+    border-radius: @border-radius-base;
+}
+
+.button {
+    width: 100px;
+    height: 36px;
+    border-radius: @border-radius-base;
+}

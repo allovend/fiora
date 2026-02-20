@@ -1,0 +1,19 @@
+{
+  "version": "1.1.4",
+  "build": 114,
+  "title": "v1.1.4 更新",
+  "notes": "1. 例行更新\\n2. 修复与优化（请按实际情况补充）",
+  "force": false,
+  "minSupportedVersion": "1.1.0",
+  "android": {
+    "apkUrl": "https://fiora.nasforjonas.xyz/fiora-app/apk/fiora-1.1.4.apk",
+    "sha256": "abb6b9fc0121acc87500f24afb5ecad4456bb5d807daba10e874c86f3c974010",
+    "size": 33506245
+  },
+  "ios": {
+    "appStoreUrl": "",
+    "ipaUrl": ""
+  }
+}
+
+

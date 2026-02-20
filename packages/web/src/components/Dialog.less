@@ -1,0 +1,64 @@
+@import '../styles/variable.less';
+
+:global {
+    .rc-dialog {
+        /* 统一弹窗尺寸标准：标准弹窗 500px */
+        width: 500px;
+        /* 居中由基础样式层和默认主题的 flex 布局控制 */
+        /* 移除旧的定位方式，避免干扰居中 */
+        top: auto;
+        transform: none;
+        /* 确保弹窗居中显示 */
+        position: relative;
+        margin: 0;
+    }
+    .rc-dialog-content {
+        width: 100%;
+    }
+    .rc-dialog-title {
+        font-size: 16px !important;
+    }
+    .rc-dialog-wrap {
+        overflow: hidden !important;
+    }
+
+    /**
+     * 无障碍（A11y）说明：
+     * 之前这里试图通过 CSS “修改 tabindex / aria-hidden 相关行为”，但 CSS 无法真正修改 DOM 属性，
+     * 反而会引发浏览器控制台的 aria-hidden/focus 警告，且可能造成交互异常。
+     *
+     * 现在改为：
+     * - CSS 只负责外观（尺寸/滚动/关闭按钮等）
+     * - 焦点/aria-hidden 的修复逻辑交给 Dialog.tsx（用 JS 在运行时纠正 rc-dialog 的焦点哨兵）
+     */
+    
+    .rc-dialog-close {
+        top: 0 !important;
+        right: 10px !important;
+        z-index: 9999;
+    
+        .rc-dialog-close-x {
+            font-size: 32px !important;
+        }
+    }
+    
+    .rc-dialog-body {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: 60vh;
+    }
+    
+    @media @mobile {
+        .rc-dialog {
+            width: 94% !important;
+            margin: 0 auto;
+        }
+        .rc-dialog-body {
+            padding: 10px 10px;
+            // max-height: 88%;
+        }
+        .rc-dialog-content {
+            max-height: 80vh;
+        }
+    }
+}

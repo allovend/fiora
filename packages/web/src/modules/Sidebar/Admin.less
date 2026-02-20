@@ -1,0 +1,54 @@
+.admin {
+    /* 管理员控制台使用标准弹窗尺寸（500px，由 Dialog.less 统一设置） */
+    /* 确保居中显示，不设置定位属性，由基础样式层控制 */
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    margin: 0;
+}
+
+.inputBlock {
+    display: flex;
+}
+
+@import '../../styles/variable.less';
+
+.input {
+    flex: 1;
+    height: 36px;
+    border-radius: @border-radius-base;
+}
+
+.tagUsernameInput {
+    flex: 3;
+}
+
+.tagInput {
+    flex: 2;
+    margin-left: 6px;
+}
+
+.button {
+    width: 100px;
+    height: 36px;
+    margin-left: 10px;
+    border-radius: @border-radius-base;
+}
+
+.sealList {
+    min-height: 22px;
+}
+
+.sealUsername {
+    margin-right: 10px;
+    line-height: 22px;
+    font-size: 14px;
+}
+
+.tip {
+    margin: 4px 0;
+    line-height: 20px;
+    font-size: 12px;
+    color: #999;
+}
